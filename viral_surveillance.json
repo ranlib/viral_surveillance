@@ -1,0 +1,10 @@
+{
+    "ViralSurveillancePanel.fastq_R1": "Array[File]",
+    "ViralSurveillancePanel.fastq_R2": "Array[File]",
+    "ViralSurveillancePanel.human_reference": "File",
+    "ViralSurveillancePanel.kraken2_db": "File",
+    "ViralSurveillancePanel.min_depth": 10,
+    "ViralSurveillancePanel.min_var_af": 0.03,
+    "ViralSurveillancePanel.viral_refs_fasta": "File",
+    "ViralSurveillancePanel.viral_refs_index": "File"
+}
