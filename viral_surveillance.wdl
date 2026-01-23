@@ -11,12 +11,33 @@ workflow ViralSurveillancePanel {
         File kraken2_db
         Int min_depth = 10
         Float min_var_af = 0.03
+      }
+      
+    #
+    # Raw read QC
+    #
+    call FastQC as FastQC_Raw {
+        input:
+            fastqs = [fastq_R1, fastq_R2],
+            prefix = "raw"
     }
 
+    #
+    # Trimming
+    #
     call FastpTrim {
         input:
-            fastq_R1=fastq_R1,
-            fastq_R2=fastq_R2
+            fastq_R1 = fastq_R1,
+            fastq_R2 = fastq_R2
+    }
+
+    #
+    # Post-trim QC
+    #
+    call FastQC as FastQC_Trimmed {
+        input:
+            fastqs = [FastpTrim.trimmed_R1, FastpTrim.trimmed_R2],
+            prefix = "trimmed"
     }
 
     call HostDepletion {
@@ -60,12 +81,79 @@ workflow ViralSurveillancePanel {
             consensus_fasta=ConsensusGenome.consensus_fasta
     }
 
+    #
+    # MultiQC aggregation
+    #
+    call MultiQC {
+        input:
+            qc_inputs = [FastQC_Raw.html_reports, FastQC_Trimmed.html_reports, [FastpTrim.html]],
+            output_prefix = "viral_surveillance_multiqc"
+    }
+
     output {
-        File report_taxonomy = Kraken2Detect.report
-        File virus_bam = AlignVirusRefs.virus_bam
-        File variants_vcf = VariantCalling.variants_vcf
-        File consensus_fasta = ConsensusGenome.consensus_fasta
-        File phylo_tree = Phylogeny.tree
+      File multiqc_report = MultiQC.report_html
+      Array[File] fastqc_raw = FastQC_Raw.html_reports
+      Array[File] fastqc_trimmed = FastQC_Trimmed.html_reports
+      File kraken_report = Kraken2Detect.report
+      File variants_vcf = VariantCalling.variants_vcf
+      File consensus_fasta = ConsensusGenome.consensus_fasta
+      File phylogeny_tree = Phylogeny.tree
+      File virus_bam = AlignVirusRefs.virus_bam
+    }
+}
+
+task FastQC {
+    input {
+        Array[File] fastqs
+        String prefix = "fastqc"
+    }
+
+    command {
+        mkdir -p fastqc_out
+
+        fastqc \
+          --threads 4 \
+          --outdir fastqc_out \
+          ~{sep=" " fastqs}
+    }
+
+    output {
+        Array[File] html_reports = glob("fastqc_out/*_fastqc.html")
+        Array[File] zip_reports  = glob("fastqc_out/*_fastqc.zip")
+    }
+
+    runtime {
+        docker: "quay.io/biocontainers/fastqc:0.12.1--hdfd78af_0"
+        cpu: 4
+        memory: "4G"
+    }
+  }
+  
+task MultiQC {
+    input {
+        Array[File] qc_inputs
+        String output_prefix = "multiqc"
+    }
+
+    command {
+        mkdir -p multiqc_out
+
+        multiqc \
+          --force \
+          --outdir multiqc_out \
+          --filename ~{output_prefix}.html \
+          ~{sep=" " qc_inputs}
+    }
+
+    output {
+        File report_html = "multiqc_out/~{output_prefix}.html"
+        File report_data = "multiqc_out/~{output_prefix}_data.zip"
+    }
+
+    runtime {
+        docker: "quay.io/biocontainers/multiqc:1.19--pyhdfd78af_0"
+        cpu: 2
+        memory: "4G"
     }
 }
 
