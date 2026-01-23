@@ -1,9 +1,9 @@
 {
     "ViralSurveillanceCohort.human_reference": "references/human/hg38.fa",
-    "ViralSurveillanceCohort.kraken2_db": "File",
+    "ViralSurveillanceCohort.kraken2_db": "/home/dbest/data/kraken2/k2_viral_20251015.tar.gz",
     "ViralSurveillanceCohort.min_depth": 10,
     "ViralSurveillanceCohort.min_var_af": 0.03,
-    "ViralSurveillanceCohort.samples": [ {"sample_id": "1", "fastq_R1": File, "fastq_R2": File}],
+    "ViralSurveillanceCohort.samples": [ {"sample_id": "TwistSARSR1", "fastq_R1": "test_data/fastq/TwistSARSR1_S1_L001_R1_001.fastq.gz", "fastq_R2": "test_data/fastq/TwistSARSR1_S1_L001_R2_001.fastq.gz"}],
     "ViralSurveillanceCohort.viral_refs_fasta": "viral_db/refseq/bwa/viral_refseq.fasta",
     "ViralSurveillanceCohort.viral_refs_index": "viral_db/refseq/bwa/viral_refseq.fasta"
 }
