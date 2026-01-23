@@ -53,24 +53,25 @@ task FastpTrim {
     }
 
     runtime {
-        docker: "quay.io/biocontainers/fastp:0.23.3--h7dfc5bd_0"
+        docker: "dbest/fastp:v1.0.1"
         cpu: 4
         memory: "4G"
     }
 }
 
 # Host depletion
-task HostDepletion {
+task HostDepletionBwa {
     input {
-        File trimmed_R1
-        File trimmed_R2
-        File human_reference
-        String sample_id
+      File trimmed_R1
+      File trimmed_R2
+      File human_reference
+      String sample_id
+      Int threads = 32
     }
 
     command {
         mkdir -p host_depletion_out
-        bwa mem -t 4 ~{human_reference} ~{trimmed_R1} ~{trimmed_R2} | \
+        bwa mem -t ${hreads} ~{human_reference} ~{trimmed_R1} ~{trimmed_R2} | \
             samtools view -b -f 12 -F 256 - > host_depletion_out/~{sample_id}.nohost.bam
         # Extract no-host FASTQs
         samtools fastq host_depletion_out/~{sample_id}.nohost.bam \
@@ -90,29 +91,74 @@ task HostDepletion {
     }
 }
 
+task HostDepletionBowtie2 {
+    input {
+      File trimmed_R1
+      File trimmed_R2
+      File human_reference
+      String sample_id
+      Int threads = 32
+    }
+
+    command {
+      bowtie2 --very-sensitive \
+      --threads ~{threads} \
+      -x ~{human_reference} \
+      -1 ~{trimmed_R1} \
+      -2 ~{trimmed_R2} \
+      --un-conc-gz ~{sample_id}.nohost.fastq.gz \
+      -S host.sam
+      
+      mv ~{sample_id}.nohost.1.fastq.gz ~{sample_id}.nohost_R1.fastq.gz
+      mv ~{sample_id}.nohost.2.fastq.gz ~{sample_id}.nohost_R2.fastq.gz
+    }
+
+    output {
+        File nohost_R1 = "~{sample_id}.nohost_R1.fastq.gz"
+        File nohost_R2 = "~{sample_id}.nohost_R2.fastq.gz"
+    }
+
+    runtime {
+        docker: "quay.io/biocontainers/bowtie2:2.5.1--py39h2e2f0a9_0"
+        memory: "16G"
+        cpu: 4
+    }
+}
+
 # Kraken2 detection + summary
 task Kraken2Detect {
     input {
-        File nohost_R1
-        File nohost_R2
-        File kraken2_db
-        String sample_id
+      File nohost_R1
+      File nohost_R2
+      File kraken2_db
+      String sample_id
+      Int threads = 1
+      Int minimum_base_quality = 20
     }
 
     command <<<
-        kraken2 \
-          --db ~{kraken2_db} \
-          --paired ~{nohost_R1} ~{nohost_R2} \
-          --report ~{sample_id}.kraken.report \
-          --output ~{sample_id}.kraken.out
+      mkdir -p ${PWD}/kraken
+      tar -C ${PWD}/kraken -xvf ~{kraken2_db}
 
-        # Generate MultiQC-compatible summary
-        awk '$4=="S"{printf "%s\t%s\t%s\t%d\t%.5f\n","~{sample_id}", $6,$4,$2,$1/100}' ~{sample_id}.kraken.report > ~{sample_id}.kraken_summary.tsv
+      kraken2 \
+      --db ./kraken \
+      --threads ~{threads} \
+      --paired ~{nohost_R1} ~{nohost_R2} \
+      --unclassified-out ~{sample_id}.unclassified#.fastq \
+      --classified-out ~{sample_id}.classified#.fastq \
+      --minimum-base-quality ~{minimum_base_quality} \
+      --use-names \
+      --gzip-compressed \
+      --report ~{sample_id}.kraken.report \
+      --output ~{sample_id}.kraken.out
+      
+      # Generate MultiQC-compatible summary
+      awk '$4=="S"{printf "%s\t%s\t%s\t%d\t%.5f\n","~{sample_id}", $6,$4,$2,$1/100}' ~{sample_id}.kraken.report > ~{sample_id}.kraken_summary.tsv
     >>>
 
     output {
-        File report      = "~{sample_id}.kraken.report"
-        File kraken_output      = "~{sample_id}.kraken.out"
+        File kraken_report = "~{sample_id}.kraken.report"
+        File kraken_output = "~{sample_id}.kraken.out"
         File summary_tsv = "~{sample_id}.kraken_summary.tsv"
     }
 
@@ -323,7 +369,7 @@ workflow ViralSurveillanceSingleSample {
         input: fastqs=[FastpTrim.trimmed_R1, FastpTrim.trimmed_R2]
     }
 
-    call HostDepletion {
+    call HostDepletionBowtie2 {
         input:
             trimmed_R1=FastpTrim.trimmed_R1,
             trimmed_R2=FastpTrim.trimmed_R2,
@@ -399,7 +445,7 @@ workflow ViralSurveillanceSingleSample {
 
     output {
         File multiqc_report      = SampleMultiQC.report_html
-        File kraken_report       = Kraken2Detect.report
+        File kraken_report       = Kraken2Detect.kraken_report
         File variants_vcf        = VariantCalling.variants_vcf
         File consensus_fasta     = ConsensusGenome.consensus_fasta
         File phylogeny_tree      = Phylogeny.tree
