@@ -1,9 +1,18 @@
 {
-    "ViralSurveillanceCohort.human_reference": "references/human/hg38.fa",
+    "ViralSurveillanceCohort.host_fasta": "/home/dbest/Software/viral_surveillance/references/human/hg38.fa",
+    "ViralSurveillanceCohort.host_fasta_amb": "/home/dbest/Software/viral_surveillance/references/human/hg38.fa.amb",
+    "ViralSurveillanceCohort.host_fasta_ann":"/home/dbest/Software/viral_surveillance/references/human/hg38.fa.ann",
+    "ViralSurveillanceCohort.host_fasta_bwt":"/home/dbest/Software/viral_surveillance/references/human/hg38.fa.bwt",
+    "ViralSurveillanceCohort.host_fasta_pac":"/home/dbest/Software/viral_surveillance/references/human/hg38.fa.pac",
+    "ViralSurveillanceCohort.host_fasta_sa":"/home/dbest/Software/viral_surveillance/references/human/hg38.fa.sa",
     "ViralSurveillanceCohort.kraken2_db": "/home/dbest/data/kraken2/k2_viral_20251015.tar.gz",
     "ViralSurveillanceCohort.min_depth": 10,
     "ViralSurveillanceCohort.min_var_af": 0.03,
     "ViralSurveillanceCohort.samples": [ {"sample_id": "TwistSARSR1", "fastq_R1": "test_data/fastq/TwistSARSR1_S1_L001_R1_001.fastq.gz", "fastq_R2": "test_data/fastq/TwistSARSR1_S1_L001_R2_001.fastq.gz"}],
-    "ViralSurveillanceCohort.viral_refs_fasta": "viral_db/refseq/bwa/viral_refseq.fasta",
-    "ViralSurveillanceCohort.viral_refs_index": "viral_db/refseq/bwa/viral_refseq.fasta"
+    "ViralSurveillanceCohort.viral_db": "/home/dbest/Software/viral_surveillance/viral_db/refseq/bwa/viral_refseq.fasta",
+    "ViralSurveillanceCohort.viral_db_amb": "/home/dbest/Software/viral_surveillance/viral_db/refseq/bwa/viral_refseq.fasta.amb",
+    "ViralSurveillanceCohort.viral_db_ann": "/home/dbest/Software/viral_surveillance/viral_db/refseq/bwa/viral_refseq.fasta.ann",
+    "ViralSurveillanceCohort.viral_db_bwt": "/home/dbest/Software/viral_surveillance/viral_db/refseq/bwa/viral_refseq.fasta.bwt",
+    "ViralSurveillanceCohort.viral_db_pac": "/home/dbest/Software/viral_surveillance/viral_db/refseq/bwa/viral_refseq.fasta.pac",
+    "ViralSurveillanceCohort.viral_db_sa": "/home/dbest/Software/viral_surveillance/viral_db/refseq/bwa/viral_refseq.fasta.sa"
 }
