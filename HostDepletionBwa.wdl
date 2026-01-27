@@ -127,7 +127,7 @@ task SamToBam {
     }
 
     runtime {
-        docker: "quay.io/biocontainers/samtools:1.19.2--h50ea8bc_0"
+        docker: "dbest/samtools:v1.23"
         cpu: threads
         memory: "4G"
     }
@@ -153,7 +153,7 @@ task NameSortBam {
     }
 
     runtime {
-        docker: "quay.io/biocontainers/samtools:1.19.2--h50ea8bc_0"
+        docker: "dbest/samtools:v1.23"
         cpu: threads
         memory: "6G"
     }
@@ -206,7 +206,7 @@ task SortBam {
     }
 
     runtime {
-        docker: "quay.io/biocontainers/samtools:1.19.2--h50ea8bc_0"
+        docker: "dbest/samtools:v1.23"
         cpu: threads
         memory: "8G"
     }
@@ -226,7 +226,7 @@ task IndexBam {
     }
 
     runtime {
-        docker: "quay.io/biocontainers/samtools:1.19.2--h50ea8bc_0"
+        docker: "dbest/samtools:v1.23"
         cpu: 1
         memory: "1G"
     }
