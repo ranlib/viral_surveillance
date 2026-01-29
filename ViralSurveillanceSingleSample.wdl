@@ -185,15 +185,15 @@ task FastpTrim {
         fastp \
         -i ~{fastq_R1} \
         -I ~{fastq_R2} \
-        -o ~{sample_id}.R1.trimmed.fastq.gz \
-        -O ~{sample_id}.R2.trimmed.fastq.gz \
+        -o ~{sample_id}_R1_trimmed.fastq.gz \
+        -O ~{sample_id}_R2_trimmed.fastq.gz \
         --html ~{sample_id}.fastp.html \
         --json ~{sample_id}.fastp.json
     }
     
     output {
-        File trimmed_R1 = "~{sample_id}.R1.trimmed.fastq.gz"
-        File trimmed_R2 = "~{sample_id}.R2.trimmed.fastq.gz"
+        File trimmed_R1 = "~{sample_id}_R1_trimmed.fastq.gz"
+        File trimmed_R2 = "~{sample_id}_R2_trimmed.fastq.gz"
         File html       = "~{sample_id}.fastp.html"
         File json       = "~{sample_id}.fastp.json"
     }
