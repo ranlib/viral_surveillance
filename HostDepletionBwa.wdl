@@ -53,7 +53,7 @@ workflow HostDepletionWorkflow {
             sample_id = sample_id
     }
 
-    # Optional coordinate-sorted BAM for QC
+    # coordinate-sorted BAM for QC
     call SortBam {
         input:
             bam = SamToNoHostBam.bam,
@@ -66,12 +66,20 @@ workflow HostDepletionWorkflow {
             bam = SortBam.sorted_bam
     }
 
+    call HostContaminationMetrics {
+        input:
+        bam = SortBam.sorted_bam,
+        sample_id = sample_id
+    }
+
     output {
         File nohost_R1 = BamToFastqNoHost.nohost_R1
         File nohost_R2 = BamToFastqNoHost.nohost_R2
 
         File host_coord_bam = SortBam.sorted_bam
         File host_coord_bai = IndexBam.bai
+        
+        File host_contamination = HostContaminationMetrics.contamination_tsv
     }
 }
 
@@ -226,6 +234,54 @@ task IndexBam {
 
     output {
         File bai = "~{bam}.bai"
+    }
+
+    runtime {
+        docker: "dbest/samtools:v1.23"
+        cpu: 1
+        memory: "1G"
+    }
+}
+
+task HostContaminationMetrics {
+    input {
+        File bam        # coordinate-sorted BAM from host alignment
+        String sample_id
+    }
+
+    command <<<
+        set -exuo pipefail
+
+        total_reads=$(samtools view -c -F 2304 ~{bam})
+        host_mapped_reads=$(samtools view -c -F 2316 ~{bam})
+
+        if [ "$total_reads" -eq 0 ]; then
+            host_pct="0.00"
+            viral_pct="0.00"
+        else
+            host_pct=$(awk -v h="$host_mapped_reads" -v t="$total_reads" 'BEGIN { printf "%.2f", (h/t)*100 }')
+            viral_pct=$(awk -v hp="$host_pct" 'BEGIN { printf "%.2f", 100 - hp }')
+        fi
+
+        if (( $(echo "$viral_pct >= 10" | bc -l) )); then
+            qc_flag="PASS"
+        elif (( $(echo "$viral_pct >= 1" | bc -l) )); then
+            qc_flag="WARN"
+        else
+            qc_flag="FAIL"
+        fi
+
+        # header
+        echo -e "sample_id\ttotal_reads\thost_mapped_reads\thost_pct\tviral_pct\tqc_flag" \
+            > ~{sample_id}.host_contamination.tsv
+
+        # data
+        echo -e "~{sample_id}\t${total_reads}\t${host_mapped_reads}\t${host_pct}\t${viral_pct}\t${qc_flag}" \
+            >> ~{sample_id}.host_contamination.tsv
+    >>>
+
+    output {
+        File contamination_tsv = "~{sample_id}.host_contamination.tsv"
     }
 
     runtime {

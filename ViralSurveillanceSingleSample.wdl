@@ -121,7 +121,7 @@ workflow ViralSurveillanceSingleSample {
         bai=AlignVirusWorkflow.virus_bai,
         sample_id=sample_id
     }
-    
+
     Array[File] fastqc_raw_inputs = FastQC_Raw.zip_reports
     Array[File] fastqc_trimmed_inputs = FastQC_Trimmed.zip_reports
     Array[File] qc_inputs = [FastpTrim.json, Kraken2Detect.kraken_report, SamtoolsStats.stats, SamtoolsCoverage.coverage_tsv]
