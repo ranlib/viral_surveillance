@@ -32,18 +32,19 @@ workflow HostDepletionWorkflow {
             threads   = threads
     }
 
-    call SamToBam {
+    # filter sam to keep only reads that did not align to host
+    call SamToNoHostBam {
         input:
             sam = BwaHostAlign.sam,
             sample_id = sample_id,
-            threads = 2
+            threads = threads
     }
 
     call NameSortBam {
         input:
-            bam = SamToBam.bam,
+            bam = SamToNoHostBam.bam,
             sample_id = sample_id,
-            threads = 2
+            threads = threads
     }
 
     call BamToFastqNoHost {
@@ -55,7 +56,7 @@ workflow HostDepletionWorkflow {
     # Optional coordinate-sorted BAM for QC
     call SortBam {
         input:
-            bam = SamToBam.bam,
+            bam = SamToNoHostBam.bam,
             sample_id = sample_id,
             threads = threads
     }
@@ -91,10 +92,10 @@ task BwaHostAlign {
 
     command {
         bwa mem -t ~{threads} \
+            -o ~{sample_id}.host.sam \
             ~{host_fasta} \
             ~{fastq_R1} \
-            ~{fastq_R2} \
-            > ~{sample_id}.host.sam
+            ~{fastq_R2}
     }
 
     output {
@@ -108,18 +109,20 @@ task BwaHostAlign {
     }
 }
 
-task SamToBam {
+task SamToNoHostBam {
     input {
         File sam
         String sample_id
-        Int threads = 2
+        Int threads = 4
     }
 
     command {
+        # -f 12 keep only reads pairs where neither read mapped to the host
+        # -F 256 exclude secondary alignments 
         samtools view \
-            -@ ~{threads} \
-            -bS ~{sam} \
-            > ~{sample_id}.unsorted.bam
+        -@ ~{threads} \
+        -o ~{sample_id}.unsorted.bam \
+        -bS -f 12 -F 256 ~{sam}
     }
 
     output {
@@ -137,7 +140,7 @@ task NameSortBam {
     input {
         File bam
         String sample_id
-        Int threads = 2
+        Int threads = 4
     }
 
     command {
@@ -167,8 +170,8 @@ task BamToFastqNoHost {
 
     command {
         samtools fastq \
-            -1 ~{sample_id}.R1.nohost.fastq.gz \
-            -2 ~{sample_id}.R2.nohost.fastq.gz \
+            -1 ~{sample_id}_R1_nohost.fastq.gz \
+            -2 ~{sample_id}_R2_nohost.fastq.gz \
             -0 /dev/null \
             -s /dev/null \
             -n \
@@ -176,8 +179,8 @@ task BamToFastqNoHost {
     }
 
     output {
-        File nohost_R1 = "~{sample_id}.R1.nohost.fastq.gz"
-        File nohost_R2 = "~{sample_id}.R2.nohost.fastq.gz"
+        File nohost_R1 = "~{sample_id}_R1_nohost.fastq.gz"
+        File nohost_R2 = "~{sample_id}_R2_nohost.fastq.gz"
     }
 
     runtime {
