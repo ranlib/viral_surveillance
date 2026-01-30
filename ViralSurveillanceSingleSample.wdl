@@ -135,6 +135,7 @@ workflow ViralSurveillanceSingleSample {
         Array[File] fastqc_raw_reports     = FastQC_Raw.zip_reports
         Array[File] fastqc_trimmed_reports = FastQC_Trimmed.zip_reports
         File fastp_json                    = FastpTrim.json
+        File host_contamination            = HostDepletionWorkflow.host_contamination
         File kraken_report                 = Kraken2Detect.kraken_report
         File kraken_summary_tsv            = Kraken2Detect.summary_tsv
         File vcf                           = VariantCalling.vcf
@@ -317,8 +318,8 @@ task BgzipAndIndexVcf {
 
 task ConsensusGenome {
     input {
-      File vcf
-      File tbi
+        File vcf
+        File tbi
         File reference_fasta
         Int min_depth
         String sample_id
@@ -390,7 +391,7 @@ task SamtoolsCoverage {
     }
 
     command {
-        samtools coverage -a ~{bam} > ~{sample_id}.coverage.tsv
+        samtools coverage -o ~{sample_id}.coverage.tsv ~{bam}
     }
 
     output {
