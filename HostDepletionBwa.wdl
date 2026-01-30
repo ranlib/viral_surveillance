@@ -33,7 +33,7 @@ workflow HostDepletionWorkflow {
     }
 
     # filter sam to keep only reads that did not align to host
-    call SamToNoHostBam {
+    call SamToBam {
         input:
             sam = BwaHostAlign.sam,
             sample_id = sample_id,
@@ -42,21 +42,22 @@ workflow HostDepletionWorkflow {
 
     call NameSortBam {
         input:
-            bam = SamToNoHostBam.bam,
+            bam = SamToBam.bam,
             sample_id = sample_id,
             threads = threads
     }
 
     call BamToFastqNoHost {
         input:
-            bam = NameSortBam.namesorted_bam,
-            sample_id = sample_id
+        bam = NameSortBam.namesorted_bam,
+        sample_id = sample_id,
+        threads = threads
     }
 
     # coordinate-sorted BAM for QC
     call SortBam {
         input:
-            bam = SamToNoHostBam.bam,
+            bam = SamToBam.bam,
             sample_id = sample_id,
             threads = threads
     }
@@ -117,7 +118,7 @@ task BwaHostAlign {
     }
 }
 
-task SamToNoHostBam {
+task SamToBam {
     input {
         File sam
         String sample_id
@@ -125,12 +126,10 @@ task SamToNoHostBam {
     }
 
     command {
-        # -f 12 keep only reads pairs where neither read mapped to the host
-        # -F 256 exclude secondary alignments 
         samtools view \
         -@ ~{threads} \
         -o ~{sample_id}.unsorted.bam \
-        -bS -f 12 -F 256 ~{sam}
+        -bS ~{sam}
     }
 
     output {
@@ -172,12 +171,17 @@ task NameSortBam {
 
 task BamToFastqNoHost {
     input {
-        File bam
+        File bam # name sorted bam file
         String sample_id
+        Int threads = 4
     }
 
     command {
+        # -f 12 keep only reads pairs where neither read mapped to the host
+        # -F 256 exclude secondary alignments 
         samtools fastq \
+            -@ ~{threads} \
+            -f 12 -F 256 \
             -1 ~{sample_id}_R1_nohost.fastq.gz \
             -2 ~{sample_id}_R2_nohost.fastq.gz \
             -0 /dev/null \
@@ -193,7 +197,7 @@ task BamToFastqNoHost {
 
     runtime {
         docker: "dbest/samtools:v1.23"
-        cpu: 2
+        cpu: threads
         memory: "4G"
     }
 }
@@ -250,33 +254,40 @@ task HostContaminationMetrics {
     }
 
     command <<<
-        set -exuo pipefail
+        set -euxo pipefail
 
+        # samtools flag 2304 is combination of 2 filter out flags:
+        # 256 (0x100): Secondary alignments (non-primary).
+        # 2048 (0x800): Supplementary alignments (chimeric or split reads).
+
+        # -F 2316: Filters out any read that matches any of these bits.
+        # This specifically excludes:
+        # 1) The read itself being unmapped (4).
+        # 2) The mate read being unmapped (8).
+        # 3) Non-primary alignments (256).
+        # 4) Chimeric/supplementary alignments (2048)
+        
         total_reads=$(samtools view -c -F 2304 ~{bam})
         host_mapped_reads=$(samtools view -c -F 2316 ~{bam})
 
         if [ "$total_reads" -eq 0 ]; then
             host_pct="0.00"
-            viral_pct="0.00"
         else
             host_pct=$(awk -v h="$host_mapped_reads" -v t="$total_reads" 'BEGIN { printf "%.2f", (h/t)*100 }')
-            viral_pct=$(awk -v hp="$host_pct" 'BEGIN { printf "%.2f", 100 - hp }')
         fi
 
-        if (( $(echo "$viral_pct >= 10" | bc -l) )); then
-            qc_flag="PASS"
-        elif (( $(echo "$viral_pct >= 1" | bc -l) )); then
-            qc_flag="WARN"
-        else
+        if awk -v n="$host_pct" 'BEGIN {exit !(n >= 50)}' ; then
             qc_flag="FAIL"
+        else
+            qc_flag="PASS"
         fi
 
         # header
-        echo -e "sample_id\ttotal_reads\thost_mapped_reads\thost_pct\tviral_pct\tqc_flag" \
+        echo -e "sample_id\ttotal_reads\thost_mapped_reads\thost_pct\tqc_flag" \
             > ~{sample_id}.host_contamination.tsv
 
         # data
-        echo -e "~{sample_id}\t${total_reads}\t${host_mapped_reads}\t${host_pct}\t${viral_pct}\t${qc_flag}" \
+        echo -e "~{sample_id}\t${total_reads}\t${host_mapped_reads}\t${host_pct}\t${qc_flag}" \
             >> ~{sample_id}.host_contamination.tsv
     >>>
 
