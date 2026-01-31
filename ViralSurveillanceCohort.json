@@ -5,6 +5,7 @@
     "ViralSurveillanceCohort.host_fasta_bwt":"/home/dbest/Software/viral_surveillance/references/human/hg38.fa.bwt",
     "ViralSurveillanceCohort.host_fasta_pac":"/home/dbest/Software/viral_surveillance/references/human/hg38.fa.pac",
     "ViralSurveillanceCohort.host_fasta_sa":"/home/dbest/Software/viral_surveillance/references/human/hg38.fa.sa",
+    "ViralSurveillanceCohort.host_pct_cutoff": 70.0,
     "ViralSurveillanceCohort.kraken2_db": "/home/dbest/data/kraken2/k2_viral_20251015.tar.gz",
     "ViralSurveillanceCohort.min_depth": 10,
     "ViralSurveillanceCohort.min_var_af": 0.03,

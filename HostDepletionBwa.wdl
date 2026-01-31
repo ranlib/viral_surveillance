@@ -14,6 +14,7 @@ workflow HostDepletionWorkflow {
 
         String sample_id
         Int threads = 4
+        Float host_pct_cutoff = 70.0
     }
 
     call BwaHostAlign {
@@ -70,7 +71,8 @@ workflow HostDepletionWorkflow {
     call HostContaminationMetrics {
         input:
         bam = SortBam.sorted_bam,
-        sample_id = sample_id
+        sample_id = sample_id,
+        host_pct_cutoff = host_pct_cutoff
     }
 
     output {
@@ -251,11 +253,16 @@ task HostContaminationMetrics {
     input {
         File bam        # coordinate-sorted BAM from host alignment
         String sample_id
+        Float host_pct_cutoff = 70.0
     }
 
     command <<<
         set -euxo pipefail
-
+        # samtools view -c counts "Alignments"
+        # remove secondary and supplementary alignment to count reads
+        # each read is counted separatedly, for paired-end divide the number by 2
+        # maybe better to use the trimmed and nohost fastq files for this
+        
         # samtools flag 2304 is combination of 2 filter out flags:
         # 256 (0x100): Secondary alignments (non-primary).
         # 2048 (0x800): Supplementary alignments (chimeric or split reads).
@@ -266,22 +273,30 @@ task HostContaminationMetrics {
         # 2) The mate read being unmapped (8).
         # 3) Non-primary alignments (256).
         # 4) Chimeric/supplementary alignments (2048)
-        
+
+        # count number of alignments
         total_reads=$(samtools view -c -F 2304 ~{bam})
         host_mapped_reads=$(samtools view -c -F 2316 ~{bam})
 
+        # account for paired-end reads, i.e. divide number of aligments by 2
+        total_reads=$(awk -v n=$total_reads 'BEGIN{printf "%.2f", n/2}')
+        host_mapped_reads=$(awk -v n=$host_mapped_reads 'BEGIN{printf "%.2f", n/2}')
+
+        # calculate host percentage
         if [ "$total_reads" -eq 0 ]; then
             host_pct="0.00"
         else
             host_pct=$(awk -v h="$host_mapped_reads" -v t="$total_reads" 'BEGIN { printf "%.2f", (h/t)*100 }')
         fi
 
-        if awk -v n="$host_pct" 'BEGIN {exit !(n >= 50)}' ; then
+        # set pass/fail flag
+        if awk -v n="$host_pct" -v c="~{host_pct_cutoff}" 'BEGIN {exit !(n >= c)}' ; then
             qc_flag="FAIL"
         else
             qc_flag="PASS"
         fi
 
+        # output to tsv file
         # header
         echo -e "sample_id\ttotal_reads\thost_mapped_reads\thost_pct\tqc_flag" \
             > ~{sample_id}.host_contamination.tsv
