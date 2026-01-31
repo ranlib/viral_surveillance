@@ -31,6 +31,8 @@ workflow ViralSurveillanceSingleSample {
         
         Int min_depth
         Float min_var_af
+
+        Float host_pct_cutoff = 70.0
     }
     
     call FastQC as FastQC_Raw {
@@ -47,15 +49,16 @@ workflow ViralSurveillanceSingleSample {
     
     call HostDepletionBwa.HostDepletionWorkflow {
         input:
-        trimmed_R1=FastpTrim.trimmed_R1,
-        trimmed_R2=FastpTrim.trimmed_R2,
+        trimmed_R1      = FastpTrim.trimmed_R1,
+        trimmed_R2      = FastpTrim.trimmed_R2,
         host_fasta      = host_fasta,
         host_fasta_amb  = host_fasta_amb,
         host_fasta_ann  = host_fasta_ann,
         host_fasta_bwt  = host_fasta_bwt,
         host_fasta_pac  = host_fasta_pac,
         host_fasta_sa   = host_fasta_sa,
-        sample_id=sample_id
+        host_pct_cutoff = host_pct_cutoff,
+        sample_id       = sample_id
     }
     
     call Kraken2Detect {
@@ -92,7 +95,13 @@ workflow ViralSurveillanceSingleSample {
         input:
         vcf = VariantCalling.vcf
     }
-    
+
+    call BcftoolsStats {
+        input:
+        vcf = VariantCalling.vcf,
+        sample_id = sample_id
+    }
+
     call ConsensusGenome {
         input:
         vcf=BgzipAndIndexVcf.vcf_gz,
@@ -139,6 +148,7 @@ workflow ViralSurveillanceSingleSample {
         File kraken_report                 = Kraken2Detect.kraken_report
         File kraken_summary_tsv            = Kraken2Detect.summary_tsv
         File vcf                           = VariantCalling.vcf
+        File bcftools_stats                = BcftoolsStats.stats
         File consensus_fasta               = ConsensusGenome.consensus_fasta
         #File phylogeny_tree               = Phylogeny.tree
         File samtools_stats                = SamtoolsStats.stats
@@ -307,6 +317,33 @@ task BgzipAndIndexVcf {
     output {
         File vcf_gz = "~{vcf}.gz"
         File vcf_tbi = "~{vcf}.gz.tbi"
+    }
+
+    runtime {
+        docker: "dbest/samtools:v1.23"
+        cpu: 1
+        memory: "1G"
+    }
+}
+
+task BcftoolsStats {
+    input {
+        File vcf
+        String sample_id
+        Int threads = 1
+    }
+
+    command {
+        set -euxo pipefail
+
+        bcftools stats \
+            --threads ~{threads} \
+            ~{vcf} \
+            > ~{sample_id}.bcftools.stats.txt
+    }
+
+    output {
+        File stats = "~{sample_id}.bcftools.stats.txt"
     }
 
     runtime {

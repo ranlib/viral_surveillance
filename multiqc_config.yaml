@@ -17,6 +17,7 @@ run_modules:
   - fastp
   - kraken
   - samtools
+  - bcftools
 
 module_order:
   - fastqc:
@@ -54,6 +55,13 @@ module_order:
       info: "SAMTools counts/statistics after mapping."
       path_filters:
         - "samtools*"
+
+  - bcftools:
+      name: "STATISTICS: BCFTools"
+      anchor: "bcftools"
+      info: "BCFTools counts/statistics after variant calling."
+      path_filters:
+        - "*.bcftools.stats.txt"
 
 custom_data:
   host_contamination:
