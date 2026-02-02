@@ -133,7 +133,7 @@ workflow ViralSurveillanceSingleSample {
 
     Array[File] fastqc_raw_inputs = FastQC_Raw.zip_reports
     Array[File] fastqc_trimmed_inputs = FastQC_Trimmed.zip_reports
-    Array[File] qc_inputs = [FastpTrim.json, Kraken2Detect.kraken_report, SamtoolsStats.stats, SamtoolsCoverage.coverage_tsv]
+    Array[File] qc_inputs = [FastpTrim.json, Kraken2Detect.kraken_report, SamtoolsStats.stats, SamtoolsCoverage.coverage_tsv, BcftoolsStats.stats]
     call MultiQC as SampleMultiQC {
         input:
         qc_inputs = flatten([fastqc_raw_inputs, fastqc_trimmed_inputs, qc_inputs]),
