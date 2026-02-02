@@ -1,0 +1,331 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{setspace}
+\usepackage{hyperref}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{amsmath}
+
+\definecolor{codegray}{gray}{0.95}
+
+\lstset{
+  backgroundcolor=\color{codegray},
+  basicstyle=\ttfamily\small,
+  frame=single,
+  breaklines=true
+}
+
+\title{Standard Operating Procedure (SOP)\\
+Illumina Viral Surveillance Panel Analysis Pipeline}
+\author{Dieter Best, Ph.D.}
+\date{\today}
+
+\begin{document}
+\maketitle
+\doublespacing
+
+\section{Purpose}
+
+This document describes the Standard Operating Procedure (SOP) for running the
+Illumina Viral Surveillance Panel analysis pipeline on Linux systems.
+The pipeline performs:
+
+\begin{itemize}
+  \item Sequencing quality control
+  \item Host read removal
+  \item Viral detection
+  \item Variant calling
+  \item Phylogenetic-ready consensus generation
+  \item Cohort-level quality control reporting
+\end{itemize}
+
+The pipeline is implemented in Workflow Description Language (WDL) and is fully containerized using Docker images.
+
+
+
+\section{Scope}
+
+This SOP applies to:
+
+\begin{itemize}
+  \item Illumina Viral Surveillance Panel libraries
+  \item Paired-end Illumina sequencing data
+  \item Linux systems with Docker and a WDL engine (Cromwell recommended)
+\end{itemize}
+
+The pipeline is suitable for clinical surveillance, public-health monitoring, and research use.
+
+\section{Pipeline Overview}
+
+The pipeline processes samples independently using a scatter–gather model.
+Each sample undergoes the following stages:
+
+\begin{enumerate}
+  \item Raw read quality control (FastQC)
+  \item Host alignment and contamination estimation
+  \item Host read removal (depletion)
+  \item Viral classification (Kraken2)
+  \item Viral alignment (BWA)
+  \item Variant calling
+  \item Variant quality control (bcftools stats)
+  \item Global cohort-level reporting (MultiQC)
+\end{enumerate}
+
+\section{Software Requirements}
+
+\subsection{Operating System}
+
+\begin{itemize}
+  \item Linux (Ubuntu 20.04 or newer recommended)
+\end{itemize}
+
+\subsection{Required Software}
+
+\begin{itemize}
+  \item Docker
+  \item Java 11+
+  \item Cromwell (WDL execution engine)
+\end{itemize}
+
+Example installation (Ubuntu):
+
+\begin{lstlisting}
+sudo apt update
+sudo apt install -y docker.io openjdk-11-jre
+\end{lstlisting}
+
+\section{Reference Databases}
+
+The pipeline requires the following reference resources:
+
+\begin{itemize}
+  \item Host reference genome (FASTA + full BWA index)
+  \item Viral reference genomes (FASTA)
+  \item Kraken2 viral database
+\end{itemize}
+
+All BWA index files must be provided explicitly:
+
+\begin{itemize}
+  \item \texttt{.amb}
+  \item \texttt{.ann}
+  \item \texttt{.bwt}
+  \item \texttt{.pac}
+  \item \texttt{.sa}
+\end{itemize}
+
+
+
+\section{Pipeline Inputs}
+
+Per sample:
+
+\begin{itemize}
+  \item Paired FASTQ files (\texttt{R1}, \texttt{R2})
+  \item Sample identifier
+\end{itemize}
+
+Global inputs:
+
+\begin{itemize}
+  \item Host reference and index files
+  \item Viral reference database
+  \item Kraken2 database directory
+\end{itemize}
+
+Inputs are supplied via a JSON file.
+
+
+
+\section{Running the Pipeline}
+
+\subsection{Example Command}
+
+\begin{lstlisting}
+java -jar cromwell.jar run viral_pipeline.wdl \
+  --inputs inputs.json
+\end{lstlisting}
+
+
+
+\section{Pipeline Stages (Detailed)}
+
+\subsection{Raw Read Quality Control}
+
+FastQC is run on all input FASTQ files to assess:
+
+\begin{itemize}
+  \item Base quality
+  \item GC content
+  \item Adapter contamination
+\end{itemize}
+
+
+
+\subsection{Host Alignment}
+
+Reads are aligned to the host genome using BWA-MEM.
+The resulting BAM is coordinate-sorted and indexed.
+
+This BAM is used exclusively for QC and host contamination estimation.
+
+
+
+\subsection{Host Contamination and Viral Fraction}
+
+Host contamination is defined as:
+
+\[
+\text{Host contamination (\%)} = \frac{\text{host-mapped reads}}{\text{total reads}} \times 100
+\]
+
+Viral fraction is calculated as:
+
+\[
+\text{Viral fraction (\%)} = 100 - \text{host contamination (\%)}
+\]
+
+An automatic QC flag is assigned:
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+Viral Fraction & QC Flag & Interpretation \\
+\midrule
+$\geq$ 10\% & PASS & Adequate viral signal \\
+1--10\% & WARN & Low viral signal \\
+$<$ 1\% & FAIL & Likely negative or failed enrichment \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+
+
+\subsection{Host Read Removal}
+
+Reads where \textbf{both mates are unmapped to host} are extracted using
+\texttt{samtools} and converted back to paired FASTQ files.
+
+Duplicate removal is intentionally \textbf{not performed}, as targeted viral
+panels frequently rely on PCR duplication for sensitivity at low viral load.
+
+
+
+\subsection{Viral Detection (Kraken2)}
+
+Host-depleted FASTQs are classified using Kraken2 with a viral reference database.
+Summary reports are generated for downstream QC aggregation.
+
+
+
+\subsection{Viral Alignment}
+
+Reads are aligned to viral reference genomes using BWA.
+The pipeline separates:
+
+\begin{itemize}
+  \item Alignment
+  \item SAM to BAM conversion
+  \item Sorting (coordinate and name)
+  \item Indexing
+\end{itemize}
+
+This modular structure improves reproducibility and debugging.
+
+
+
+\subsection{Variant Calling}
+
+Variants are called from the viral BAM using bcftools.
+The resulting VCF is bgzipped and indexed.
+
+
+
+\subsection{Variant Quality Control}
+
+\texttt{bcftools stats} is run on each VCF to generate:
+
+\begin{itemize}
+  \item SNP and indel counts
+  \item Ts/Tv ratios
+  \item Depth and quality distributions
+\end{itemize}
+
+These metrics are aggregated automatically by MultiQC.
+
+
+
+\subsection{Global MultiQC Report}
+
+A single MultiQC report is generated across all samples, including:
+
+\begin{itemize}
+  \item FastQC summaries
+  \item Host contamination and viral fraction
+  \item Automatic QC flags
+  \item Samtools alignment statistics
+  \item Coverage metrics
+  \item Kraken2 summaries
+  \item bcftools variant statistics
+\end{itemize}
+
+This report is the primary QC deliverable.
+
+
+
+\section{Pipeline Outputs}
+
+Per sample:
+
+\begin{itemize}
+  \item Host-depleted FASTQ files
+  \item Viral BAM and index
+  \item Variant VCF and index
+  \item Host contamination and QC metrics (TSV)
+\end{itemize}
+
+Cohort-level:
+
+\begin{itemize}
+  \item MultiQC HTML report
+  \item MultiQC data directory
+\end{itemize}
+
+
+
+\section{Quality Control and Interpretation}
+
+\begin{itemize}
+  \item Samples flagged \texttt{FAIL} should not be used for downstream analysis
+  \item \texttt{WARN} samples may require repeat sequencing or review
+  \item Coverage and variant QC should be interpreted in the context of viral load
+\end{itemize}
+
+
+
+\section{Notes and Limitations}
+
+\begin{itemize}
+  \item Duplicate reads are not removed due to lack of UMIs
+  \item Viral fraction is an approximation for panel-based data
+  \item This pipeline is not designed for de novo viral discovery
+\end{itemize}
+
+
+
+\section{Versioning and Validation}
+
+All software versions are container-pinned.
+Pipeline changes must be documented and revalidated prior to production use.
+
+
+
+\section{Contact}
+
+For pipeline questions, maintenance, or validation documentation, contact the pipeline maintainer.
+
+\end{document}
+
