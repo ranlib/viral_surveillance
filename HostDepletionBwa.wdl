@@ -98,7 +98,7 @@ task BwaHostAlign {
         File host_fasta_sa
 
         String sample_id
-        Int threads = 4
+        Int threads = 8
     }
 
     command {
@@ -116,7 +116,8 @@ task BwaHostAlign {
     runtime {
         docker: "staphb/bwa:0.7.19"
         cpu: threads
-        memory: "16G"
+        memory: "30G"
+        disks: "local-disk 200 HDD"
     }
 }
 

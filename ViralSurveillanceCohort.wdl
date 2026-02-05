@@ -187,6 +187,6 @@ task GlobalMultiQC {
     runtime {
         docker: "multiqc/multiqc:v1.33"
         cpu: 2
-        memory: "4G"
+        memory: "8G"
     }
 }

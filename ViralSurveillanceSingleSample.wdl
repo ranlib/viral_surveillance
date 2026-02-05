@@ -243,7 +243,7 @@ task Kraken2Detect {
         --output ~{sample_id}.kraken.out
         
         # Generate MultiQC-compatible summary
-        awk '$4=="S"{printf "%s\t%s\t%s\t%d\t%.5f\n","~{sample_id}", $6,$4,$2,$1/100}' ~{sample_id}.kraken.report > ~{sample_id}.kraken_summary.tsv
+        awk '$4=="S"{printf "%s\t%s\t%s\t%d\t%.5f\n","~{sample_id}", $6,$4,$2,$1}' ~{sample_id}.kraken.report > ~{sample_id}.kraken_summary.tsv
     >>>
     
     output {
@@ -254,8 +254,9 @@ task Kraken2Detect {
     
     runtime {
         docker: "staphb/kraken2:latest"
-        cpu: 4
-        memory: "16G"
+        cpu: 8
+        memory: "30G"
+        disks: "local-disk 200 HDD"
     }
 }
 
