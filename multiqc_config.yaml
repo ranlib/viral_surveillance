@@ -90,3 +90,6 @@ table_conditional_formatting:
         background: "#fff7bc"
       FAIL:
         background: "#fcbba1"
+
+kraken:
+  top_n: 10
