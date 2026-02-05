@@ -222,7 +222,7 @@ task Kraken2Detect {
         File nohost_R2
         File kraken2_db
         String sample_id
-        Int threads = 1
+        Int threads = 4
         Int minimum_base_quality = 20
     }
     
@@ -254,7 +254,7 @@ task Kraken2Detect {
     
     runtime {
         docker: "staphb/kraken2:latest"
-        cpu: 8
+        cpu: threads
         memory: "30G"
         disks: "local-disk 200 HDD"
     }
